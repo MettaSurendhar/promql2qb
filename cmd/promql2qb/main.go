@@ -1,12 +1,7 @@
-// Command promql2qb reads a PromQL query and prints the equivalent
-// SigNoz Query Builder JSON.
-//
-// Usage:
-//
-//	promql2qb 'sum(http_requests_total{service="checkout"}) by (status)'
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -26,11 +21,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	out, err := json.MarshalIndent(spec, "", "  ")
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+
+	if err := enc.Encode(spec); err != nil {
 		fmt.Fprintf(os.Stderr, "error marshalling output: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println(string(out))
+	fmt.Print(buf.String())
 }
