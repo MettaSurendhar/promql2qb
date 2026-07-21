@@ -1,0 +1,16 @@
+# Binaries
+/promql2qb
+/bin/
+*.exe
+*.test
+
+# Go build/test cache
+*.out
+
+# Editor/OS
+.DS_Store
+.idea/
+.vscode/
+
+# Env
+.env
