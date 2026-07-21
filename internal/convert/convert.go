@@ -1,9 +1,3 @@
-// Package convert turns a PromQL query string into a SigNoz Query Builder
-// (qbschema.CompositeQuery) value.
-//
-// Pipeline: PromQL string -> promql/parser AST -> Convert() walks the AST
-// and delegates to filter.go, aggregation.go, groupby.go, having.go to
-// build up the target spec.
 package convert
 
 import (
@@ -14,8 +8,8 @@ import (
 	"github.com/MettaSurendhar/promql2qb/internal/qbschema"
 )
 
-// Convert parses a PromQL query string and returns the equivalent SigNoz
-// Query Builder composite query.
+// Convert parses a PromQL query and builds the matching SigNoz
+// Query Builder spec.
 func Convert(promql string) (*qbschema.CompositeQuery, error) {
 	expr, err := parser.ParseExpr(promql)
 	if err != nil {
@@ -27,13 +21,28 @@ func Convert(promql string) (*qbschema.CompositeQuery, error) {
 		Signal: "metrics",
 	}
 
-	// TODO: walk expr (a parser.Expr) with a type switch and fill in spec
-	// via extractFilter, extractAggregation, extractGroupBy, extractHaving.
-	_ = expr
+	agg, ok := expr.(*parser.AggregateExpr)
+	if !ok {
+		return nil, fmt.Errorf("only aggregation queries are supported right now, e.g. sum(...) by (...)")
+	}
+
+	spec.Aggregations = []qbschema.Aggregation{
+		{Expression: extractAggregation(agg)},
+	}
+	spec.GroupBy = extractGroupBy(agg)
+
+	sel, ok := agg.Expr.(*parser.VectorSelector)
+	if !ok {
+		return nil, fmt.Errorf("only a plain metric selector inside the aggregation is supported right now")
+	}
+
+	if f := extractFilter(sel); f != "" {
+		spec.Filter = &qbschema.Filter{Expression: f}
+	}
 
 	return &qbschema.CompositeQuery{
 		Queries: []qbschema.Query{
 			{Type: "builder_query", Spec: spec},
 		},
-	}, fmt.Errorf("not implemented yet")
+	}, nil
 }
