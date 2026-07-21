@@ -1,14 +1,16 @@
 package convert
 
-import "github.com/prometheus/prometheus/promql/parser"
+import (
+	"fmt"
 
-// extractAggregation converts a PromQL aggregation expression
-// (e.g. sum(rate(metric[5m]))) into a QB aggregation expression
-// (e.g. "sum(value)").
+	"github.com/prometheus/prometheus/promql/parser"
+)
+
+// extractAggregation maps a PromQL aggregation op (sum, avg, count...)
+// to a QB aggregation expression, e.g. sum -> sum(value).
 //
-// TODO: implement. Handle at least sum, avg, count, min, max, rate.
-// AggregateExpr.Op is the aggregation function; AggregateExpr.Expr is
-// the inner expression (which may itself be a Call, e.g. rate(...)).
+// Note: doesn't unwrap nested calls yet (e.g. sum(rate(x[5m]))),  just reads the outer op
+
 func extractAggregation(agg *parser.AggregateExpr) string {
-	return ""
+	return fmt.Sprintf("%s(value)", agg.Op.String())
 }
