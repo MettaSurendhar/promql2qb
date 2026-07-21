@@ -1,28 +1,61 @@
 package convert
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
-// Table-driven tests, one row per PromQL feature. Add cases as each
-// piece of the converter is implemented; keep the JSON fixtures in
-// examples/ once there are enough to warrant separate files.
 func TestConvert(t *testing.T) {
 	tests := []struct {
-		name   string
-		promql string
+		name    string
+		promql  string
+		wantErr bool
 	}{
 		{
 			name:   "simple sum with label filter and group by",
 			promql: `sum(http_requests_total{service="checkout"}) by (status)`,
 		},
-		// TODO: add cases for count, avg, rate, having, without, etc.
+		{
+			name:   "count with multiple label matchers",
+			promql: `count(errors_total{service="checkout", status!="200"}) by (route)`,
+		},
+		{
+			name:   "avg with regex matcher",
+			promql: `avg(latency_seconds{service=~"checkout.*"}) by (route)`,
+		},
+		{
+			name:   "having on a plain aggregation",
+			promql: `sum(errors) > 100`,
+		},
+		{
+			name:    "bare selector with no aggregation is not supported yet",
+			promql:  `http_requests_total{service="checkout"}`,
+			wantErr: true,
+		},
+		{
+			name:    "binary expression between two metrics is not supported yet",
+			promql:  `sum(errors) / sum(requests)`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Skip("not implemented yet")
-			_, err := Convert(tt.promql)
+			spec, err := Convert(tt.promql)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("Convert(%q): expected an error, got none", tt.promql)
+				}
+				return
+			}
+
 			if err != nil {
-				t.Fatalf("Convert(%q) error: %v", tt.promql, err)
+				t.Fatalf("Convert(%q): unexpected error: %v", tt.promql, err)
+			}
+
+			if _, err := json.Marshal(spec); err != nil {
+				t.Fatalf("Convert(%q): result did not marshal to JSON: %v", tt.promql, err)
 			}
 		})
 	}
