@@ -2,11 +2,11 @@ package convert
 
 import "github.com/prometheus/prometheus/promql/parser"
 
-// extractGroupBy converts a PromQL "by (...)" / "without (...)" clause
-// into a QB groupBy list.
-//
-// TODO: implement. agg.Grouping holds the label names; agg.Without
-// distinguishes "by" from "without" (MVP: only support "by").
+// extractGroupBy pulls the "by (...)" labels off an aggregation.
+// "without (...)" isn't handled yet
 func extractGroupBy(agg *parser.AggregateExpr) []string {
-	return nil
+	if agg.Without {
+		return nil
+	}
+	return agg.Grouping
 }
