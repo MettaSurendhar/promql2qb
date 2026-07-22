@@ -3,11 +3,15 @@ package convert
 import (
 	"fmt"
 
+	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/promql/parser"
 
 	"github.com/MettaSurendhar/promql2qb/internal/qbschema"
 )
 
+func init() {
+	model.NameValidationScheme = model.UTF8Validation
+}
 
 func Convert(promql string) (*qbschema.CompositeQuery, error) {
 	expr, err := parser.ParseExpr(promql)
@@ -20,6 +24,7 @@ func Convert(promql string) (*qbschema.CompositeQuery, error) {
 		Signal: "metrics",
 	}
 
+
 	if bin, isBin := expr.(*parser.BinaryExpr); isBin {
 		having, aggExpr, ok := extractHaving(bin)
 		if !ok {
@@ -30,6 +35,7 @@ func Convert(promql string) (*qbschema.CompositeQuery, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		spec.Aggregations = []qbschema.Aggregation{aggregation}
 		spec.GroupBy = extractGroupBy(aggExpr)
 		spec.Having = &qbschema.Having{Expression: having}
@@ -51,6 +57,7 @@ func Convert(promql string) (*qbschema.CompositeQuery, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	spec.Aggregations = []qbschema.Aggregation{aggregation}
 	spec.GroupBy = extractGroupBy(agg)
 	if f := extractFilter(sel); f != "" {

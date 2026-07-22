@@ -4,10 +4,11 @@ This document records the gaps and semantic mismatches found while building
 `promql2qb`, most of them from testing generated queries against a real,
 self-hosted SigNoz instance rather than just reading docs. Some of these are
 things the converter doesn't support yet; one of them (time-window semantics)
-isn't something the converter *can* fix, since it's a difference in how the
+isn't something the converter _can_ fix, since it's a difference in how the
 two query engines evaluate a query, not a difference in JSON shape.
 
 ## 1. `avg`/`sum`/etc. time aggregation and PromQL's `_over_time` are not the
+
 same operation once the step interval gets large
 
 This is the most important finding in this document, and it came from
@@ -21,16 +22,16 @@ different step sizes.
 Same metric, same filter, same fixed time range (`22/07/2026 20:00:00 -
 23:59:59`) in every case, only the step size changed:
 
-| Step | Query Builder | PromQL | Result |
-|---|---|---|---|
-| 60s | `avg every 60 Seconds` | `avg_over_time(gen{...}[60s])` | shapes match |
-| 120s | `avg every 120 Seconds` | `avg_over_time(gen{...}[120s])` | shapes match |
+| Step | Query Builder           | PromQL                          | Result                     |
+| ---- | ----------------------- | ------------------------------- | -------------------------- |
+| 60s  | `avg every 60 Seconds`  | `avg_over_time(gen{...}[60s])`  | shapes match               |
+| 120s | `avg every 120 Seconds` | `avg_over_time(gen{...}[120s])` | shapes match               |
 | 300s | `avg every 300 Seconds` | `avg_over_time(gen{...}[300s])` | **shapes diverge sharply** |
 
 ### 60s
 
-| Query Builder | PromQL |
-|---|---|
+| Query Builder                                 | PromQL                                                            |
+| --------------------------------------------- | ----------------------------------------------------------------- |
 | ![Query Builder, 60s step](images/qb-60s.png) | ![PromQL, 120s range vs QB 60s](images/promql-120s-vs-qb-60s.png) |
 
 (The PromQL screenshot above is the 120s-range query, included here because
@@ -39,8 +40,8 @@ see the note on this below.)
 
 ### 120s
 
-| Query Builder | PromQL |
-|---|---|
+| Query Builder                                   | PromQL                                                                      |
+| ----------------------------------------------- | --------------------------------------------------------------------------- |
 | ![Query Builder, 120s step](images/qb-120s.png) | ![PromQL, 120s range, matching Query Builder](images/promql-120s-match.png) |
 
 Still matching. Both show the same jagged rise-fall-rise pattern, same
@@ -48,8 +49,8 @@ peak/trough heights.
 
 ### 300s
 
-| Query Builder | PromQL |
-|---|---|
+| Query Builder                                                                     | PromQL                                                                                    |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | ![Query Builder, 300s step, flattened to a single value](images/qb-300s-flat.png) | ![PromQL, 300s range, still showing the full waveform](images/promql-300s-full-shape.png) |
 
 At 300s, Query Builder's plot collapses to a single flat value around
@@ -57,7 +58,7 @@ At 300s, Query Builder's plot collapses to a single flat value around
 still shows the full spiky waveform, just slightly smoothed. This is not a
 small numeric discrepancy like the earlier 60s comparison (see the git
 history in this repo for that first, smaller mismatch) - it's a difference
-in the *number of points on the chart*, which points to a difference in
+in the _number of points on the chart_, which points to a difference in
 what the two systems are actually computing, not a rounding or timestamp
 offset issue.
 
@@ -107,6 +108,7 @@ several minutes or more) as the case most likely to show visible
 divergence, and smaller ones as the safer range for this tool.
 
 ## 2. Dotted metric/label names need PromQL's quoted-name syntax, not
+
 underscore conversion
 
 OTel-style attribute names like `service.name` contain dots, which classic
@@ -130,13 +132,7 @@ not
 gen{service_name="telemetrygen"}
 ```
 
-`promql2qb`'s filter extraction does not yet detect this case and switch
-to quoted-label syntax automatically - it will currently emit whatever
-label name PromQL gives it, unquoted, in the QB filter expression. For
-label names that are already valid identifiers (no dots) this is correct;
-for dotted names carried through via quoted syntax, the quoting isn't
-stripped or re-added, so double-check filter output involving dotted label
-names by hand for now.
+`promql2qb's` filter extraction now detects label names that aren't plain identifiers (mainly dotted OTel-style names) and keeps them quoted in the output filter expression, e.g. `"service.name" = 'telemetrygen'`. This is covered by a regression test (TestExtractFilterQuotesDottedLabelNames) using the exact query that surfaced the original mismatch.
 
 ## 3. Unsupported PromQL shapes
 
@@ -165,6 +161,6 @@ The converter returns a clear error, rather than a best-effort guess, for:
 Every comparison in this document was run against the `metrics` signal.
 Filter, group-by, and having all apply to logs/traces too in SigNoz's
 model, but PromQL itself has no concept of a logs or traces query, so
-there's no equivalent PromQL syntax to convert *from* for those signals in
+there's no equivalent PromQL syntax to convert _from_ for those signals in
 the first place. This tool is scoped to metrics only; see the main
 README's MVP scope for the current signal support.
