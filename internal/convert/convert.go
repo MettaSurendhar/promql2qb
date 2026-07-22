@@ -13,8 +13,11 @@ func init() {
 	model.NameValidationScheme = model.UTF8Validation
 }
 
+var promqlParser = parser.NewParser(parser.Options{})
+
+
 func Convert(promql string) (*qbschema.CompositeQuery, error) {
-	expr, err := parser.ParseExpr(promql)
+	expr, err := promqlParser.ParseExpr(promql)
 	if err != nil {
 		return nil, fmt.Errorf("parsing promql: %w", err)
 	}
@@ -24,7 +27,7 @@ func Convert(promql string) (*qbschema.CompositeQuery, error) {
 		Signal: "metrics",
 	}
 
-
+	
 	if bin, isBin := expr.(*parser.BinaryExpr); isBin {
 		having, aggExpr, ok := extractHaving(bin)
 		if !ok {
