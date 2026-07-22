@@ -40,6 +40,14 @@ func TestConvert(t *testing.T) {
 			promql: `sum(rate(errors_total{service="checkout"}[5m])) > 10`,
 		},
 		{
+			name:   "avg_over_time maps to avg time aggregation",
+			promql: `sum(avg_over_time(gen{service="checkout"}[60s]))`,
+		},
+		{
+			name:   "dotted label name stays quoted in the filter output",
+			promql: `sum(avg_over_time(gen{"service.name"="telemetrygen"}[60s]))`,
+		},
+		{
 			name:    "bare selector with no aggregation is not supported yet",
 			promql:  `http_requests_total{service="checkout"}`,
 			wantErr: true,
@@ -64,6 +72,7 @@ func TestConvert(t *testing.T) {
 				if err == nil {
 					t.Fatalf("Convert(%q): expected an error, got none", tt.promql)
 				}
+				t.Logf("got expected error: %v", err)
 				return
 			}
 
@@ -71,9 +80,26 @@ func TestConvert(t *testing.T) {
 				t.Fatalf("Convert(%q): unexpected error: %v", tt.promql, err)
 			}
 
-			if _, err := json.Marshal(spec); err != nil {
+			out, err := json.MarshalIndent(spec, "", "  ")
+			if err != nil {
 				t.Fatalf("Convert(%q): result did not marshal to JSON: %v", tt.promql, err)
 			}
+			t.Logf("input:  %s\noutput: %s", tt.promql, out)
 		})
+	}
+}
+
+// TestExtractFilterQuotesDottedLabelNames locks in the specific case that
+// failed against a real SigNoz instance before the quoting fix.
+func TestExtractFilterQuotesDottedLabelNames(t *testing.T) {
+	spec, err := Convert(`sum(avg_over_time(gen{"service.name"="telemetrygen"}[60s])) by (status)`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := spec.Queries[0].Spec.Filter.Expression
+	want := `"service.name" = 'telemetrygen'`
+	if got != want {
+		t.Fatalf("filter expression = %q, want %q", got, want)
 	}
 }
