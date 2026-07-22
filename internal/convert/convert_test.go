@@ -1,9 +1,22 @@
 package convert
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 )
+
+
+func marshalPretty(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+}
 
 func TestConvert(t *testing.T) {
 	tests := []struct {
@@ -80,7 +93,7 @@ func TestConvert(t *testing.T) {
 				t.Fatalf("Convert(%q): unexpected error: %v", tt.promql, err)
 			}
 
-			out, err := json.MarshalIndent(spec, "", "  ")
+			out, err := marshalPretty(spec)
 			if err != nil {
 				t.Fatalf("Convert(%q): result did not marshal to JSON: %v", tt.promql, err)
 			}
@@ -89,8 +102,6 @@ func TestConvert(t *testing.T) {
 	}
 }
 
-// TestExtractFilterQuotesDottedLabelNames locks in the specific case that
-// failed against a real SigNoz instance before the quoting fix.
 func TestExtractFilterQuotesDottedLabelNames(t *testing.T) {
 	spec, err := Convert(`sum(avg_over_time(gen{"service.name"="telemetrygen"}[60s])) by (status)`)
 	if err != nil {
