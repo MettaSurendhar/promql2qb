@@ -8,9 +8,6 @@ import (
 	"github.com/MettaSurendhar/promql2qb/internal/qbschema"
 )
 
-// two aggregation layers:
-// the outer op (sum/avg/count/min/max) becomes spaceAggregation,
-// and an inner rate()/increase() call becomes timeAggregation.
 
 func extractAggregation(agg *parser.AggregateExpr) (qbschema.Aggregation, *parser.VectorSelector, error) {
 	metricName, sel, timeAgg, err := unwrapAggregatedExpr(agg.Expr)
@@ -24,6 +21,15 @@ func extractAggregation(agg *parser.AggregateExpr) (qbschema.Aggregation, *parse
 		SpaceAggregation: agg.Op.String(),
 	}, sel, nil
 }
+
+var overTimeToTimeAgg = map[string]string{
+	"avg_over_time":   "avg",
+	"sum_over_time":   "sum",
+	"min_over_time":   "min",
+	"max_over_time":   "max",
+	"count_over_time": "count",
+}
+
 
 func unwrapAggregatedExpr(expr parser.Expr) (metricName string, sel *parser.VectorSelector, timeAgg string, err error) {
 	switch e := expr.(type) {
@@ -44,12 +50,13 @@ func unwrapAggregatedExpr(expr parser.Expr) (metricName string, sel *parser.Vect
 			return "", nil, "", fmt.Errorf("unsupported range selector inside %s(...)", e.Func.Name)
 		}
 
-		switch e.Func.Name {
-		case "rate", "increase":
+		if e.Func.Name == "rate" || e.Func.Name == "increase" {
 			return vecSel.Name, vecSel, e.Func.Name, nil
-		default:
-			return "", nil, "", fmt.Errorf("function %s(...) isn't supported yet", e.Func.Name)
 		}
+		if timeAgg, ok := overTimeToTimeAgg[e.Func.Name]; ok {
+			return vecSel.Name, vecSel, timeAgg, nil
+		}
+		return "", nil, "", fmt.Errorf("function %s(...) isn't supported yet", e.Func.Name)
 
 	default:
 		return "", nil, "", fmt.Errorf("unsupported expression inside the aggregation")
