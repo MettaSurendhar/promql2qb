@@ -97,6 +97,16 @@ go mod tidy
 go test ./...
 ```
 
+## Known limitations
+
+Testing generated queries against a real, self-hosted SigNoz instance
+surfaced some real gaps and semantic differences between PromQL and
+SigNoz's query model - most notably, that SigNoz's fixed-step time
+aggregation and PromQL's `_over_time` sliding window aren't the same
+operation once the step interval gets large. See
+[`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) for the full writeup with
+screenshots.
+
 ## Roadmap
 
 - [ ] Implement `extractFilter` (label matchers -> filter expression)
